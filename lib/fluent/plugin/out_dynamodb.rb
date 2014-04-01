@@ -25,6 +25,7 @@ class DynamoDBOutput < Fluent::BufferedOutput
   config_param :dynamo_db_endpoint, :string, :default => nil
   config_param :time_format, :string, :default => nil
   config_param :detach_process, :integer, :default => 2
+  config_param :time_field_enable, :bool, :default => true
 
   def configure(conf)
     super
@@ -93,25 +94,39 @@ class DynamoDBOutput < Fluent::BufferedOutput
       end
       match_type!(@range_key, record)
     end
-    record['time'] = formatted_time
-
+    record['time'] = formatted_time if @time_field_enable
     record.to_msgpack
   end
 
   def write(chunk)
     batch_size = 0
     batch_records = []
-    chunk.msgpack_each {|record|
-      batch_records << record
-      batch_size += record.to_json.length # FIXME: heuristic
-      if batch_records.size >= BATCHWRITE_ITEM_LIMIT || batch_size >= BATCHWRITE_CONTENT_SIZE_LIMIT
+    batch_keys = []
+    begin
+      chunk.msgpack_each {|record|
+        # check same keys exists
+        if !batch_keys.include?(record[@hash_key.name])
+          batch_records << record
+          batch_keys << record[@hash_key.name]
+          batch_size += record.to_json.length # FIXME: heuristic
+        end
+        if batch_records.size >= BATCHWRITE_ITEM_LIMIT || batch_size >= BATCHWRITE_CONTENT_SIZE_LIMIT
+          batch_put_records(batch_records)
+          batch_records.clear
+          batch_keys.clear
+          batch_size = 0
+        end
+      }
+      unless batch_records.empty?
         batch_put_records(batch_records)
         batch_records.clear
+        batch_keys.clear
         batch_size = 0
       end
-    }
-    unless batch_records.empty?
-      batch_put_records(batch_records)
+    rescue AWS::DynamoDB::Errors::ValidationException
+      batch_records.clear
+      batch_keys.clear
+      batch_size = 0
     end
   end
 
@@ -124,4 +139,3 @@ end
 
 
 end
-
