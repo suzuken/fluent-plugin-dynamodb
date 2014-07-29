@@ -26,6 +26,7 @@ class DynamoDBOutput < Fluent::BufferedOutput
   config_param :time_format, :string, :default => nil
   config_param :detach_process, :integer, :default => 2
   config_param :time_field_enable, :bool, :default => true
+  config_param :delete_mode, :bool, :default => false
 
   def configure(conf)
     super
@@ -131,7 +132,11 @@ class DynamoDBOutput < Fluent::BufferedOutput
   end
 
   def batch_put_records(records)
-    @batch.put(@dynamo_db_table, records)
+    if @delete_mode
+      @batch.delete(@dynamo_db_table, records)
+    else
+      @batch.put(@dynamo_db_table, records)
+    end
     @batch.process!
   end
 
