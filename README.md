@@ -30,6 +30,7 @@ Specify table name, hash attribute name and throughput as you like. fluent-plugi
  * **proxy_uri (optional)** - your proxy url.
  * **dynamo\_db\_endpoint (required)** - end point of dynamodb. see  [Regions and Endpoints](http://docs.amazonwebservices.com/general/latest/gr/rande.html#ddb_region)
  * **dynamo\_db\_table (required)** - table name of dynamodb.
+ * **delete_mode** - using delete mode. occur batch request with `DeleteItem` request. default: `false`.
 
 ##TIPS
 
